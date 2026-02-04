@@ -1,0 +1,21 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+	<!-- Header Fragment -->
+	<header th:fragment="header" class="bg-blue-600 text-white p-4 shadow-md">
+		<div class="container mx-auto flex justify-between items-center">
+			<h1 class="text-xl font-bold">Rummy Scorekeeper</h1>
+			<nav>
+				<a th:href="@{/}" class="px-2 hover:underline">Home</a>
+			</nav>
+		</div>
+	</header>
+
+	<title th:fragment="title">
+		<h2 th:text="${pageTitle ?: 'I need a pageTitle'}"> Page title go here. </h2>
+	</title>
+
+	<!-- Footer Fragment -->
+	<footer th:fragment="footer" class="bg-gray-800 text-gray-300 p-6 mt-8 text-center">
+		<p>&copy;<span th:text="${#dates.year(#dates.createNow())}">2025</span> Brain Dribbler Games. Play responsibly</p>
+	</footer>
+</html>
