@@ -3,15 +3,19 @@
 	<head th:fragment="common-head">
 		<meta charset="UTF-8">
 		<meta name="viewport" content="width=device-width, initial-scale=1.0">
-		<title th:text="${title != null ? ('Dribbler Scorekeeper - ' + title) : 'Dribbler Scorekeeper'}"> Title go here. </title>
+		<title th:text="${title != null ? ('Dribbler Scorekeeper - ' + title) : 'Dribbler Scorekeeper'}"> Title </title>
 		
-		<!-- Tailwind CSS for mobile-friendly styling -->
 		<script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
-		
-		<!-- Alpine.js for scorekeeper logic (must include 'defer') -->
+		<script defer src="https://cdn.jsdelivr.net"></script>
+		<script defer src="https://cdn.jsdelivr.net/npm/@alpinejs/persist@3.x.x/dist/cdn.min.js"></script>
 		<script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
 		
-		<!-- Your custom styles or scripts -->
+		<!-- 4. Custom Styles -->
 		<link rel="stylesheet" th:href="@{/css/main.css}">
 	</head>
+
+	<div th:fragment="scripts">
+		<!-- Load your custom logic -->
+		<script th:src="@{/js/main.js}"></script>
+	</div>
 </html>

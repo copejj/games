@@ -1,0 +1,17 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org">
+	<head th:replace="~{fragments/common :: common-head(title='Live Score')}"></head>
+	<body class="bg-gray-50 flex flex-col min-h-screen">
+		<div th:replace="~{fragments/layout :: header}"></div>
+		<div th:replace="~{fragments/layout :: title}"></div>
+
+		<main class="flex-grow container mx-auto px-4 py-6">
+			<div class="bg-white rounded-lg shadow p-6">
+				<h2 class="text-2xl font-semibold mb-4 text-center">Games List</h2>
+				<!-- Your Alpine.js scorecard will live here -->
+			</div>
+		</main>
+
+		<div th:replace="~{fragments/layout :: footer}"></div>
+	</body>
+</html>
