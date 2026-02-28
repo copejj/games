@@ -19,8 +19,7 @@ jobs:
                     port: ${{ secrets.SSH_PRIVATE_PORT }}
                     username: ${{ secrets.SSH_PRIVATE_USERNAME }}
                     key: ${{ secrets.SSH_PRIVATE_KEY }}
-                    # IMPORTANT: All variables used in the script must be listed here
-                    envs: DB_NAME,DB_USER,DB_PASS,DB_HOST,DB_URL,API_BASE_URL,SERVER_CONTEXT_PATH,TAG_NAME,APP_EXTERNAL_URL,ENVIRONMENT
+                    envs: TAG_NAME,DB_URL,DB_USER,DB_PASS,API_BASE_URL,ENVIRONMENT,SERVER_CONTEXT_PATH
 
                     script: |
                         CURRENT_STEP="INITIALIZATION"
@@ -44,7 +43,6 @@ jobs:
                         sed -i "s|<api_base_url>|$API_BASE_URL|g" src/main/resources/application.properties
                         sed -i "s|<environment>|${ENVIRONMENT:-DEV}|g" src/main/resources/application.properties
                         sed -i "s|<server_context_path>|$SERVER_CONTEXT_PATH|g" src/main/resources/application.properties
-                        sed -i "s|<games_service_base_url>|$GAMES_SERVICE_BASE_URL|g" src/main/resources/application.properties
                         mvn clean package -DskipTests
 
                         CURRENT_STEP="DEPLOYMENT"
@@ -84,12 +82,10 @@ jobs:
 
                         echo "--- Deployment of $TAG_NAME completed successfully! ---"
                 env:
-                    DB_NAME: ${{ secrets.DB_NAME }}
+                    TAG_NAME: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
+                    DB_URL: ${{ secrets.DB_URL }}
                     DB_USER: ${{ secrets.DB_USER }}
                     DB_PASS: ${{ secrets.DB_PASS }}
-                    DB_HOST: ${{ secrets.DB_HOST }}
-                    DB_URL: ${{ secrets.DB_URL }}
-                    ENVIRONMENT: ${{ vars.ENVIRONMENT }}
                     API_BASE_URL: ${{ vars.API_BASE_URL }}
+                    ENVIRONMENT: ${{ vars.ENVIRONMENT }}
                     SERVER_CONTEXT_PATH: ${{ vars.SERVER_CONTEXT_PATH }}
-                    TAG_NAME: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
