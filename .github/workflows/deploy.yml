@@ -33,7 +33,7 @@ jobs:
                         echo "[Step 2/6] Fetching code for tag: $TAG_NAME"
                         git fetch --tags --all
                         # git checkout "$TAG_NAME"
-                        git checkout -b "release-$TAG_NAME" "$TAG_NAME"
+                        git checkout -B "release-$TAG_NAME" "$TAG_NAME"
 
                         CURRENT_STEP="BUILD"
                         # 3. Configuration & Build
@@ -44,6 +44,7 @@ jobs:
                         sed -i "s|<api_base_url>|$API_BASE_URL|g" src/main/resources/application.properties
                         sed -i "s|<environment>|${ENVIRONMENT:-DEV}|g" src/main/resources/application.properties
                         sed -i "s|<server_context_path>|$SERVER_CONTEXT_PATH|g" src/main/resources/application.properties
+                        sed -i "s|<games_service_base_url>|$GAMES_SERVICE_BASE_URL|g" src/main/resources/application.properties
                         mvn clean package -DskipTests
 
                         CURRENT_STEP="DEPLOYMENT"
