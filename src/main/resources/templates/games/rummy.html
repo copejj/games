@@ -3,10 +3,10 @@
 	<!-- Your common-head fragment includes Alpine and Tailwind -->
 	<head th:replace="~{fragments/common :: common-head(title='Rummy')}"></head>
 
-	<body class="bg-gray-100 min-h-screen">
+	<body class="bg-gray-100 min-h-screen flex flex-col">
 		<div th:replace="~{fragments/layout :: header}"></div>
 
-		<main class="p-4 max-w-md mx-auto">
+		<main class="p-4 max-w-md mx-auto flex-grow">
 			<!-- Bind to the 'rummyApp' defined in main.js -->
 			<div x-data="rummyApp" class="space-y-4">
 				<!-- Top Controls Container -->

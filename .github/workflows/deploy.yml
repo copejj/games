@@ -49,7 +49,7 @@ jobs:
                         CURRENT_STEP="DEPLOYMENT"
                         # 4. Deploy to Tomcat (Parallel Deployment)
                         echo "[Step 4/6] Deploying versioned WAR..."
-                        VERSION_NAME="ROOT##${TAG_NAME}.war"
+                        VERSION_NAME="${{ vars.PROD_DEPLOY_NAME }}##${TAG_NAME}.war"
                         BUILD_WAR="${{ vars.PROD_APP_PATH }}/target/${{ vars.PROD_APP_NAME }}.war"
 
                         # Copy to webapps. Tomcat keeps the old version running for existing users!
@@ -80,7 +80,6 @@ jobs:
                         echo "[Step 6/6] Cleaning up environment..."
                         git checkout .
                         mvn clean
-                        rm "$BACKUP_FILE"
 
                         echo "--- Deployment of $TAG_NAME completed successfully! ---"
                 env:
