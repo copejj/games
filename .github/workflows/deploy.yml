@@ -26,6 +26,7 @@ jobs:
                         CURRENT_STEP="INITIALIZATION"
                         # 1. [Step 1/6] Initialization and Output
                         echo "--- Starting Deployment for $TAG_NAME ---"
+                        cd ${{ vars.PROD_APP_PATH }}
 
                         CURRENT_STEP="SOURCE_CHECKOUT"
                         # 2. Sync Code
