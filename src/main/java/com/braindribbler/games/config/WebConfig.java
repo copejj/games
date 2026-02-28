@@ -8,7 +8,7 @@ import org.springframework.web.client.RestClient;
 @Configuration
 public class WebConfig {
 
-    @Value("${app.games-service.base-url}")
+    @Value("${app.api.base-url}")
     private String gamesBaseUrl;
 
     @Bean
