@@ -10,7 +10,6 @@
 	</parent>
 	<groupId>com.braindribbler</groupId>
 	<artifactId>games</artifactId>
-	<version>0.0.1-SNAPSHOT</version>
 	<packaging>war</packaging>
 	<name>Braindribbling Games</name>
 	<description>A basic game mobile friendly tool</description>
@@ -29,6 +28,7 @@
 	</scm>
 	<properties>
 		<java.version>21</java.version>
+		<my.warName>spring-games</my.warName>
 	</properties>
 	<dependencies>
 		<dependency>
@@ -63,6 +63,7 @@
 	</dependencies>
 
 	<build>
+		<finalName>${my.warName}</finalName>
 		<plugins>
 			<plugin>
 				<groupId>org.springframework.boot</groupId>
