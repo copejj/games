@@ -12,6 +12,7 @@
 					<button @click="addPlayer" class="flex-1 bg-blue-600 text-white font-bold py-3 px-2 rounded-xl">+ Player</button>
 					<button @click="resetScores" class="flex-1 bg-amber-500 text-white font-bold py-3 px-2 rounded-xl">Reset Scores</button>
 					<button @click="resetGame" class="flex-1 bg-red-600 text-white font-bold py-3 px-2 rounded-xl text-sm">Full Reset</button>
+					<button @click="undoLastRound" class="flex-1 bg-gray-600 text-white font-bold py-3 px-2 rounded-xl text-sm">Undo Last Round</button>
 				</div>
 
 				<template x-for="(player, index) in players" :key="index">
@@ -42,6 +43,7 @@
 						class="w-full mt-4 bg-green-600 text-white font-black py-5 rounded-2xl shadow-xl active:scale-95 transition-transform sticky bottom-4">
 					SAVE ROUND
 				</button>
+
 			</div>
 		</main>
 
