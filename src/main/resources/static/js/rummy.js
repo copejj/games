@@ -1,11 +1,21 @@
-// src/main/resources/static/js/rummy.js
 document.addEventListener('alpine:init', () => {
     Alpine.data('rummyApp', () => ({
-        players: [
+        // 1. Load from localStorage or use defaults
+        players: JSON.parse(localStorage.getItem('rummy_players')) || [
             { name: 'Player 1', history: [], tempScore: null },
             { name: 'Player 2', history: [], tempScore: null }
         ],
-        dealerIndex: 0,
+        dealerIndex: parseInt(localStorage.getItem('rummy_dealer')) || 0,
+
+        init() {
+            // 2. Set up a watcher to save to local memory whenever players change
+            this.$watch('players', (val) => {
+                localStorage.setItem('rummy_players', JSON.stringify(val));
+            });
+            this.$watch('dealerIndex', (val) => {
+                localStorage.setItem('rummy_dealer', val);
+            });
+        },
 
         resetScores() {
             if (confirm('Reset scores to zero?')) {
@@ -14,6 +24,7 @@ document.addEventListener('alpine:init', () => {
                     p.tempScore = null; 
                 });
                 this.dealerIndex = 0;
+                // No need to manual save; the watcher handles it!
             }
         },
 
@@ -31,17 +42,32 @@ document.addEventListener('alpine:init', () => {
         },
 
         calculateTotal(player) {
-            return player.history.reduce((sum, score) => sum + score, 0);
+            return player.history.reduce((sum, score) => sum + (parseInt(score) || 0), 0);
         },
 
         addPlayer() {
-            this.players.push({ name: '', history: [], tempScore: null });
+            this.players.push({ name: 'New Player', history: [], tempScore: null });
         },
 
         resetGame() {
             if (confirm('Full reset? This deletes players and scores.')) {
-                location.reload(); // Quick way to reset everything to default state
+                localStorage.clear(); // Clear the memory
+                location.reload();
             }
-        }
+        },
+
+        undoLastRound() {
+            // Check if there is even a round to undo
+            const hasHistory = this.players.some(p => p.history.length > 0);
+            
+            if (hasHistory && confirm('Undo the last round for everyone?')) {
+                this.players.forEach(p => {
+                    p.history.pop(); // Remove the last score
+                });
+                
+                // Move dealer back one (looping to the end if at 0)
+                this.dealerIndex = (this.dealerIndex - 1 + this.players.length) % this.players.length;
+            }
+        },
     }));
 });
