@@ -11,7 +11,7 @@ public class RummyController {
     public String showScorekeeper(Model model) {
         // You can pass dynamic data here if you ever decide to 
         // pre-load existing player names or game settings
-        model.addAttribute("pageTitle", "Live Scorekeeper");
+        model.addAttribute("pageTitle", "Rummy Scorekeeper");
         return "games/rummy"; // This looks for scorekeeper.html in /templates
 	}
 
