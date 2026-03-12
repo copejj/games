@@ -17,5 +17,11 @@
 	<!-- Footer Fragment -->
 	<footer th:fragment="footer" class="bg-gray-800 text-gray-300 p-6 mt-8 text-center">
 		<p>&copy;<span th:text="${#dates.year(#dates.createNow())}">2025</span> Brain Dribbler Games. Play responsibly</p>
+		<div class="version-info" th:if="${showGitInfo}">
+			<small class="text-muted">
+				<span th:text="${gitBranch}">main</span> 
+				(<span th:text="${gitHash}">abcd123</span>)
+			</small>
+		</div>
 	</footer>
 </html>
