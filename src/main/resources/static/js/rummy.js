@@ -17,6 +17,42 @@ document.addEventListener('alpine:init', () => {
             });
         },
 
+        addPlayer() {
+            const nextNumber = this.players.length + 1;
+
+            this.players = [
+                ...this.players, 
+                { name: `Player ${nextNumber}`, history: [], tempScore: null }
+            ];
+        },
+
+        saveRound() {
+            const missing = this.players.filter(p => p.tempScore === null || p.tempScore === '');
+            if (missing.length > 0) {
+                alert("Please enter a score for everyone!");
+                return;
+            }
+
+            this.players = this.players.map(p => ({
+                ...p,
+                history: [...p.history, parseInt(p.tempScore)],
+                tempScore: null
+            }));
+
+            this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
+        },
+
+        calculateTotal(player) {
+            return player.history.reduce((sum, score) => sum + (parseInt(score) || 0), 0);
+        },
+
+        resetGame() {
+            if (confirm('Full reset? This deletes players and scores.')) {
+                localStorage.clear(); // Clear the memory
+                location.reload();
+            }
+        },
+
         resetScores() {
             if (confirm('Reset scores to zero?')) {
                 this.players.forEach(p => { 
@@ -28,39 +64,10 @@ document.addEventListener('alpine:init', () => {
             }
         },
 
-        saveRound() {
-            const missing = this.players.filter(p => p.tempScore === null || p.tempScore === '');
-            if (missing.length > 0) {
-                alert("Please enter a score for everyone!");
-                return;
-            }
-            this.players.forEach(p => {
-                p.history.push(parseInt(p.tempScore));
-                p.tempScore = null;
-            });
-            this.dealerIndex = (this.dealerIndex + 1) % this.players.length;
-        },
-
-        calculateTotal(player) {
-            return player.history.reduce((sum, score) => sum + (parseInt(score) || 0), 0);
-        },
-
-        addPlayer() {
-            this.players.push({ name: 'New Player', history: [], tempScore: null });
-        },
-
-        resetGame() {
-            if (confirm('Full reset? This deletes players and scores.')) {
-                localStorage.clear(); // Clear the memory
-                location.reload();
-            }
-        },
-
-        undoLastRound() {
-            // Check if there is even a round to undo
+        resetLastRound() {
             const hasHistory = this.players.some(p => p.history.length > 0);
             
-            if (hasHistory && confirm('Undo the last round for everyone?')) {
+            if (hasHistory && confirm('Reset the last round for everyone?')) {
                 this.players.forEach(p => {
                     p.history.pop(); // Remove the last score
                 });
