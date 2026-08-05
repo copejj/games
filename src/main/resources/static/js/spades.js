@@ -1,21 +1,12 @@
 document.addEventListener('alpine:init', () => {
     Alpine.data('spadesApp', () => ({
+        // 1. Enhanced initialization with real-time error field indicators
         teams: JSON.parse(localStorage.getItem('spades_teams')) || [
-            { 
-                name: 'Team 1', 
-                p1_name: 'Player 1', 
-                p2_name: 'Player 2', 
-                history: [], bagHistory: [], p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: '' 
-            },
-            { 
-                name: 'Team 2', 
-                p1_name: 'Player 3', 
-                p2_name: 'Player 4', 
-                history: [], bagHistory: [], p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: '' 
-            }
+            { name: 'Team 1', p1_name: 'Player 1', p2_name: 'Player 2', history: [], bagHistory: [], p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: '', errorMessage: '' },
+            { name: 'Team 2', p1_name: 'Player 3', p2_name: 'Player 4', history: [], bagHistory: [], p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: '', errorMessage: '' }
         ],
         settings: JSON.parse(localStorage.getItem('spades_settings')) || { minBidFour: true, bagsPenalty: true, nilAllowed: true },
-        dealerIndex: parseInt(localStorage.getItem('spades_dealer')) || 0,
+        dealerPosition: localStorage.getItem('spades_dealer') || '0_1',
         maxScore: parseInt(localStorage.getItem('spades_maxScore')) || 500,
         showSettings: false,
         winner: null,
@@ -23,24 +14,80 @@ document.addEventListener('alpine:init', () => {
         init() {
             this.$watch('teams', val => localStorage.setItem('spades_teams', JSON.stringify(val)));
             this.$watch('settings', val => localStorage.setItem('spades_settings', JSON.stringify(val)));
-            this.$watch('dealerIndex', val => localStorage.setItem('spades_dealer', val));
+            this.$watch('dealerPosition', val => localStorage.setItem('spades_dealer', val));
             this.$watch('maxScore', val => localStorage.setItem('spades_maxScore', val));
+        },
+
+        isDealer(teamIdx, playerNum) {
+            return this.dealerPosition === `${teamIdx}_${playerNum}`;
+        },
+        rotateDealer() {
+            // Rotation path: Team 0 P1 -> Team 1 P1 -> Team 0 P2 -> Team 1 P2 -> Repeat
+            const mapping = { '0_1': '1_1', '1_1': '0_2', '0_2': '1_2', '1_2': '0_1' };
+            this.dealerPosition = mapping[this.dealerPosition] || '0_1';
+        },
+
+        // 2. Real-time dynamic change validation pipeline
+        validateBids(team) {
+            // Reset message placeholder
+            team.errorMessage = '';
+            if (!this.settings.minBidFour) return;
+
+            if (this.settings.nilAllowed) {
+                // If either input is completely blank, both players haven't input a bid yet
+                if (team.p1_bid === '' || team.p2_bid === '') return;
+
+                let p1B = parseInt(team.p1_bid, 10);
+                let p2B = parseInt(team.p2_bid, 10);
+
+                if (isNaN(p1B) || isNaN(p2B)) return;
+
+                // Simultaneous Nil Block
+                if (p1B === 0 && p2B === 0) {
+                    team.errorMessage = "Partners cannot both bid NIL.";
+                    return;
+                }
+                // Nil Rule + Under-4 Partner Block
+                if ((p1B === 0 && p2B < 4) || (p2B === 0 && p1B < 4)) {
+                    team.errorMessage = "If a partner bids NIL, the other must bid 4 or higher.";
+                    return;
+                }
+                // Standard combined under-4 contract block
+                if (p1B > 0 && p2B > 0 && (p1B + p2B < 4)) {
+                    team.errorMessage = `Combined team bid must equal 4 or more. Currently: ${p1B + p2B}.`;
+                    return;
+                }
+            } else {
+                // Evaluation route for "No Nil Mode"
+                if (team.team_bid === '') return;
+                let tBid = parseInt(team.team_bid, 10);
+                if (!isNaN(tBid) && tBid < 4) {
+                    team.errorMessage = "Total team bid must equal 4 or more.";
+                }
+            }
         },
 
         saveRound() {
             let totalMatchTricks = 0;
             let roundResults = [];
 
+            // Block saving if any team currently displays an error message configuration
             for (let i = 0; i < this.teams.length; i++) {
+                this.validateBids(this.teams[i]); // Force validation catch check
+                if (this.teams[i].errorMessage) {
+                    return alert(`Please correct the bidding errors on ${this.teams[i].name} before applying scores.`);
+                }
+
+                // Track total trick inputs matching standard Spades properties
                 const team = this.teams[i];
                 if (this.settings.nilAllowed) {
-                    let p1T = parseInt(team.p1_tricks);
-                    let p2T = parseInt(team.p2_tricks);
-                    if (isNaN(p1T) || isNaN(p2T)) { return alert(`Please fill out all trick inputs for ${team.name}`); }
+                    let p1T = parseInt(team.p1_tricks, 10);
+                    let p2T = parseInt(team.p2_tricks, 10);
+                    if (isNaN(p1T) || isNaN(p2T)) return alert(`Please fill out all trick inputs for ${team.name}`);
                     totalMatchTricks += (p1T + p2T);
                 } else {
-                    let tTricks = parseInt(team.team_tricks);
-                    if (isNaN(tTricks)) { return alert(`Please fill out trick inputs for ${team.name}`); }
+                    let tTricks = parseInt(team.team_tricks, 10);
+                    if (isNaN(tTricks)) return alert(`Please fill out trick inputs for ${team.name}`);
                     totalMatchTricks += tTricks;
                 }
             }
@@ -51,7 +98,7 @@ document.addEventListener('alpine:init', () => {
 
             for (let i = 0; i < this.teams.length; i++) {
                 let res = this.calculateTeamRound(this.teams[i]);
-                if (res === null) return; 
+                if (res === null) return;
                 roundResults.push(res);
             }
 
@@ -61,12 +108,15 @@ document.addEventListener('alpine:init', () => {
                     ...t,
                     history: [...t.history, res.roundScore],
                     bagHistory: [...t.bagHistory, res.roundBags],
-                    p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: ''
+                    p1_bid: '', p1_tricks: '', p2_bid: '', p2_tricks: '', team_bid: '', team_tricks: '',
+                    errorMessage: '' // Flush out error tags cleanly
                 };
             });
 
-            this.dealerIndex = (this.dealerIndex + 1) % this.teams.length;
-            if (this.teams.some(t => this.calculateTotalScore(t) >= this.maxScore)) { this.determineWinner(); }
+            this.rotateDealer();
+            if (this.teams.some(t => this.calculateTotalScore(t) >= this.maxScore)) {
+                this.determineWinner();
+            }
         },
 
         calculateTeamRound(team) {
@@ -84,57 +134,66 @@ document.addEventListener('alpine:init', () => {
                     return null;
                 }
 
-                if (this.settings.minBidFour) {
-                    if ((p1B === 0 && p2B < 4 && p2B !== 0) || (p2B === 0 && p1B < 4 && p1B !== 0)) {
-                        alert(`Validation Error on ${team.name}: If a player bids NIL, their partner must bid 4 or higher.`);
-                        return null;
-                    }
-                    if (p1B === 0 && p2B === 0) {
-                        alert(`Validation Error on ${team.name}: Partners cannot both bid NIL.`);
-                        return null;
-                    }
-                    if (p1B > 0 && p2B > 0 && (p1B + p2B < 4)) {
-                        alert(`Validation Error on ${team.name}: Combined team bid must equal 4 or more.`);
-                        return null;
-                    }
-                }
+                // [Validation logic for minBidFour omitted for length - keep yours as is]
 
+                // Case A: Player 1 is Nil
                 if (p1B === 0 && p2B > 0) {
                     roundScore += (p1T === 0) ? 100 : -100;
-                    let totalTeamTricks = p1T + p2T;
-                    if (totalTeamTricks >= p2B) {
+                    // Partner's contract is evaluated completely independently
+                    if (p2T >= p2B) {
                         roundScore += p2B * 10;
-                        if (this.settings.bagsPenalty) { roundScore += (totalTeamTricks - p2B); roundBags += (totalTeamTricks - p2B); }
-                    } else { roundScore -= p2B * 10; }
+                        if (this.settings.bagsPenalty) {
+                            roundBags += (p2T - p2B); // Only partner's overtricks count as bags!
+                        }
+                    } else {
+                        roundScore -= p2B * 10;
+                    }
                 }
+                // Case B: Player 2 is Nil
                 else if (p2B === 0 && p1B > 0) {
                     roundScore += (p2T === 0) ? 100 : -100;
-                    let totalTeamTricks = p1T + p2T;
-                    if (totalTeamTricks >= p1B) {
+                    if (p1T >= p1B) {
                         roundScore += p1B * 10;
-                        if (this.settings.bagsPenalty) { roundScore += (totalTeamTricks - p1B); roundBags += (totalTeamTricks - p1B); }
-                    } else { roundScore -= p1B * 10; }
+                        if (this.settings.bagsPenalty) {
+                            roundBags += (p1T - p1B); // Only partner's overtricks count as bags!
+                        }
+                    } else {
+                        roundScore -= p1B * 10;
+                    }
                 }
+                // Case C: Normal Bids
                 else {
                     let combinedBid = p1B + p2B;
                     let combinedTricks = p1T + p2T;
                     if (combinedTricks >= combinedBid) {
                         roundScore += combinedBid * 10;
-                        if (this.settings.bagsPenalty) { roundScore += (combinedTricks - combinedBid); roundBags += (combinedTricks - combinedBid); }
-                    } else { roundScore -= combinedBid * 10; }
+                        if (this.settings.bagsPenalty) {
+                            roundBags += (combinedTricks - combinedBid); // Keep points clean of bag counts
+                        }
+                    } else {
+                        roundScore -= combinedBid * 10;
+                    }
                 }
             } else {
+                // No Nil Mode Evaluation
                 let tBid = parseInt(team.team_bid);
                 let tTricks = parseInt(team.team_tricks);
 
-                if (isNaN(tBid) || isNaN(tTricks)) { alert(`Please fill out all inputs for ${team.name}`); return null; }
-                if (this.settings.minBidFour && tBid < 4) { alert(`Validation Error on ${team.name}: Total team bid must equal 4 or more.`); return null; }
+                if (isNaN(tBid) || isNaN(tTricks)) {
+                    alert(`Please fill out all inputs for ${team.name}`);
+                    return null;
+                }
 
                 if (tTricks >= tBid) {
                     roundScore += tBid * 10;
-                    if (this.settings.bagsPenalty) { roundScore += (tTricks - tBid); roundBags += (tTricks - tBid); }
-                } else { roundScore -= tBid * 10; }
+                    if (this.settings.bagsPenalty) {
+                        roundBags += (tTricks - tBid);
+                    }
+                } else {
+                    roundScore -= tBid * 10;
+                }
             }
+
             return { roundScore, roundBags };
         },
 
@@ -145,8 +204,13 @@ document.addEventListener('alpine:init', () => {
 
             let netBags = team.bagHistory.reduce((sum, bags) => sum + (parseInt(bags) || 0), 0);
             let penaltiesCount = Math.floor(netBags / 10);
-            return rawPoints - (penaltiesCount * 100);
+
+            // Add the single bag points here so they are cleanly coupled with the penalty logic
+            return rawPoints + netBags - (penaltiesCount * 110);
+            // (+1 point per bag minus 110 points when rolling over gives a clean, true -100 point penalty drop)
         },
+
+
 
         calculateCurrentBags(team) {
             if (!team || !this.settings.bagsPenalty) return 0;
@@ -155,7 +219,7 @@ document.addEventListener('alpine:init', () => {
         },
 
         determineWinner() {
-            this.winner = this.teams.reduce((prev, current) => 
+            this.winner = this.teams.reduce((prev, current) =>
                 (this.calculateTotalScore(prev) > this.calculateTotalScore(current)) ? prev : current
             );
         },
@@ -178,6 +242,7 @@ document.addEventListener('alpine:init', () => {
                 this.dealerIndex = 0;
                 this.winner = null;
             }
+            this.dealerPosition = '0_1'; // Reset dealer to Team 0 Player 1
         },
 
         resetLastRound() {
@@ -187,7 +252,8 @@ document.addEventListener('alpine:init', () => {
                     t.history.pop();
                     t.bagHistory.pop();
                 });
-                this.dealerIndex = (this.dealerIndex - 1 + this.teams.length) % this.teams.length;
+                const reverseMapping = { '1_1': '0_1', '0_2': '1_1', '1_2': '0_2', '0_1': '1_2' };
+                this.dealerPosition = reverseMapping[this.dealerPosition] || '0_1';
                 this.winner = null;
             }
         }
