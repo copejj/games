@@ -1,31 +1,32 @@
 <!DOCTYPE html>
 <html xmlns:th="http://www.thymeleaf.org">
-	<!-- Header Fragment -->
-	<header th:fragment="header(extra)" class="bg-blue-600 text-white p-4 shadow-md">
-		<div class="container mx-auto flex justify-between items-center">
-			<div class="flex items-center gap-3">
-				<!-- Sandwich/Settings slot -->
-				<th:block th:replace="${extra} ?: ~{}"></th:block>
-				<h1 class="text-xl font-bold" th:text="${pageTitle ?: 'Scorekeepers'}">Scorekeepers</h1>
-			</div>
-			<nav>
-				<a th:href="@{/}" class="px-2 hover:underline">Home</a>
-			</nav>
+<!-- Header Fragment -->
+<header th:fragment="header(extra)" class="bg-blue-600 text-white p-4 shadow-md">
+	<div class="container mx-auto flex justify-between items-center">
+		<div class="flex items-center gap-3">
+			<!-- Sandwich/Settings slot -->
+			<th:block th:replace="${extra} ?: ~{}"></th:block>
+			<h1 class="text-xl font-bold" th:text="${pageTitle ?: 'Scorekeepers'}">Scorekeepers</h1>
 		</div>
-	</header>
+		<nav>
+			<a th:href="@{~/}" class="px-2 hover:underline">Home</a>
+		</nav>
+	</div>
+</header>
 
-	<title th:fragment="title">
-		<h2 th:text="${pageTitle ?: 'I need a pageTitle'}"> Page title go here. </h2>
-	</title>
+<title th:fragment="title">
+	<h2 th:text="${pageTitle ?: 'I need a pageTitle'}"> Page title go here. </h2>
+</title>
 
-	<!-- Footer Fragment -->
-	<footer th:fragment="footer" class="bg-gray-800 text-gray-300 p-6 mt-8 text-center">
-		<p>&copy;<span th:text="${#dates.year(#dates.createNow())}">2025</span> Brain Dribbler Games. Play responsibly</p>
-		<div class="version-info" th:if="${showGitInfo}">
-			<small class="text-muted">
-				<span th:text="${gitBranch}">main</span> 
-				(<span th:text="${gitHash}">abcd123</span>)
-			</small>
-		</div>
-	</footer>
+<!-- Footer Fragment -->
+<footer th:fragment="footer" class="bg-gray-800 text-gray-300 p-6 mt-8 text-center">
+	<p>&copy;<span th:text="${#dates.year(#dates.createNow())}">2025</span> Brain Dribbler Games. Play responsibly</p>
+	<div class="version-info" th:if="${showGitInfo}">
+		<small class="text-muted">
+			<span th:text="${gitBranch}">main</span>
+			(<span th:text="${gitHash}">abcd123</span>)
+		</small>
+	</div>
+</footer>
+
 </html>
