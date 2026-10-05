@@ -9,6 +9,7 @@ document.addEventListener('alpine:init', () => {
         dealerPosition: localStorage.getItem('spades_dealer') || '0_1',
         maxScore: parseInt(localStorage.getItem('spades_maxScore')) || 500,
         showSettings: false,
+        dealerIndex: 0,
         winner: null,
 
         init() {
