@@ -24,24 +24,33 @@ jobs:
           echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
 
       - name: Checkout Code
-        uses: actions/checkout@v4
+        uses: actions/checkout@v4.2.2
         with:
           ref: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
           fetch-depth: 0
           fetch-tags: true
 
+      - name: Extract Short Hash and Clean Version
+        id: git-info
+        run: |
+          # Get the 7-character short hash
+          echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
+
       - name: Set up JDK & Maven Environment
         uses: actions/setup-java@v5
         with:
-          java-version: '21' # Adjust to your Java version if different
+          java-version: '21'
           distribution: 'temurin'
           cache: 'maven'
 
       - name: Build WAR File Off-Server
-        run: mvn clean package -DskipTests
-
+        # We explicitly pass the clean version tag to the branch property and the short hash to the hash property
+        run: |
+          mvn clean package -DskipTests \
+            -Dgit.branch="${{ steps.determine-tag.outputs.TAG_NAME }}" \
+            -Dgit.commit.id.abbrev="${{ steps.git-info.outputs.SHORT_HASH }}"
       - name: Upload WAR Artifact to GitHub Cloud
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v4.4.3
         with:
           name: target-war-file
           path: target/${{ vars.PROD_APP_NAME }}.war
@@ -54,7 +63,7 @@ jobs:
       TAG_NAME: ${{ needs.build-application.outputs.tag_name }}
     steps:
       - name: Download Built WAR Artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v4.1.8
         with:
           name: target-war-file
           path: .
