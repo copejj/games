@@ -1,60 +1,106 @@
+name: Secure Build and Remote Deploy
+
 on:
-    release:
-        types: [published]
-    workflow_dispatch: 
-        inputs:
-            test_tag:
-                description: 'Tag to use for testing (e.g. v1.0.0-test)'
-                required: false
-                default: 'testing'
+  release:
+    types: [published]
+  workflow_dispatch: 
+    inputs:
+      test_tag:
+        description: 'Tag to use for testing (e.g. v1.0.0-test)'
+        required: false
+        default: 'testing'
 
 jobs:
-    deploy-to-production:
-        runs-on: ubuntu-latest
-        steps:
-            -   name: Execute Remote Deployment
-                uses: appleboy/ssh-action@v1.2.0
-                with:
-                    host: ${{ vars.PROD_HOST }}
-                    port: ${{ secrets.SSH_PRIVATE_PORT }}
-                    username: ${{ secrets.SSH_PRIVATE_USERNAME }}
-                    key: ${{ secrets.SSH_PRIVATE_KEY }}
-                    # IMPORTANT: All variables used in the script must be listed here
-                    envs: TAG_NAME
+  # --- JOB 1: BUILD OFF-SERVER (IN GITHUB ACTIONS) ---
+  build-application:
+    runs-on: ubuntu-24.04
+    outputs:
+      tag_name: ${{ steps.determine-tag.outputs.TAG_NAME }}
+    steps:
+      - name: Determine Tag
+        id: determine-tag
+        run: |
+          TAG="${{ github.event.inputs.test_tag || github.event.release.tag_name }}"
+          echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
 
-                    script: |
-                        CURRENT_STEP="INITIALIZATION"
-                        # 1. Initialization and Output
-                        echo "[Step 1/5] --- Starting Deployment for $TAG_NAME ---"
-                        cd ${{ vars.PROD_APP_PATH }}
-                        
-                        CURRENT_STEP="SOURCE_CHECKOUT"
-                        # 2. Sync Code
-                        echo "[Step 2/5] Fetching code for tag: $TAG_NAME"
-                        git fetch --tags --all
-                        git checkout -B "release-$TAG_NAME" "$TAG_NAME"
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          ref: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
+          fetch-depth: 0
+          fetch-tags: true
 
-                        CURRENT_STEP="BUILD"
-                        # 3. Build
-                        echo "[Step 3/5] Building WAR file"
-                        mvn clean package -DskipTests
+      - name: Set up JDK & Maven Environment
+        uses: actions/setup-java@v5
+        with:
+          java-version: '21' # Adjust to your Java version if different
+          distribution: 'temurin'
+          cache: 'maven'
 
-                        CURRENT_STEP="DEPLOYMENT"
-                        # 4. Deploy to Tomcat (Parallel Deployment)
-                        echo "[Step 4/5] Deploying versioned WAR..."
-                        VERSION_NAME="${{ vars.PROD_DEPLOY_NAME }}##${TAG_NAME}.war"
-                        BUILD_WAR="${{ vars.PROD_APP_PATH }}/target/${{ vars.PROD_APP_NAME }}.war"
+      - name: Build WAR File Off-Server
+        run: mvn clean package -DskipTests
 
-                        # Copy to webapps. Tomcat keeps the old version running for existing users!
-                        cp "$BUILD_WAR" "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
+      - name: Upload WAR Artifact to GitHub Cloud
+        uses: actions/upload-artifact@v4
+        with:
+          name: target-war-file
+          path: target/${{ vars.PROD_APP_NAME }}.war
 
-                        CURRENT_STEP="FINAL_CLEANUP"
-                        # 5. Final Cleanup
-                        echo "[Step 5/5] Cleaning up environment..."
-                        git checkout .
-                        mvn clean
-                        rm "$BACKUP_FILE"
+  # --- JOB 2: SECURE UPLOAD & TOMCAT DEPLOYMENT ---
+  deploy-to-production:
+    needs: build-application
+    runs-on: ubuntu-24.04
+    env:
+      TAG_NAME: ${{ needs.build-application.outputs.tag_name }}
+    steps:
+      - name: Download Built WAR Artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: target-war-file
+          path: .
 
-                        echo "--- Deployment of $TAG_NAME completed successfully! ---"
-                env:
-                    TAG_NAME: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
+      # Securely copy the pre-built asset over without building on-server
+      - name: Copy WAR over to Server Staging Target
+        uses: appleboy/scp-action@v0.1.7
+        with:
+          host: ${{ vars.PROD_HOST }}
+          port: ${{ secrets.SSH_PRIVATE_PORT }}
+          username: ${{ secrets.SSH_PRIVATE_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          source: "${{ vars.PROD_APP_NAME }}.war"
+          target: "${{ vars.PROD_APP_PATH }}/target/"
+
+      - name: Execute Remote Deployment Actions
+        uses: appleboy/ssh-action@v1.2.0
+        env:
+          TAG_NAME: ${{ env.TAG_NAME }}
+        with:
+          host: ${{ vars.PROD_HOST }}
+          port: ${{ secrets.SSH_PRIVATE_PORT }}
+          username: ${{ secrets.SSH_PRIVATE_USERNAME }}
+          key: ${{ secrets.SSH_PRIVATE_KEY }}
+          envs: TAG_NAME
+          script: |
+            CURRENT_STEP="INITIALIZATION"
+            echo "[Step 1/4] --- Starting Remote Deploy Loop for $TAG_NAME ---"
+            cd ${{ vars.PROD_APP_PATH }}
+            
+            CURRENT_STEP="SOURCE_SYNC"
+            # Sync repo state on server without compiling code
+            echo "[Step 2/4] Syncing server source tracking to tag: $TAG_NAME"
+            git fetch --tags --all
+            git checkout -B "release-$TAG_NAME" "$TAG_NAME"
+
+            CURRENT_STEP="TOMCAT_DEPLOYMENT"
+            echo "[Step 3/4] Registering versioned asset into Tomcat environment..."
+            VERSION_NAME="${{ vars.PROD_DEPLOY_NAME }}##${TAG_NAME}.war"
+            BUILD_WAR="${{ vars.PROD_APP_PATH }}/target/${{ vars.PROD_APP_NAME }}.war"
+
+            # Hot-deploy asset into webapps path cleanly
+            cp "$BUILD_WAR" "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
+
+            CURRENT_STEP="FINAL_CLEANUP"
+            echo "[Step 4/4] Finalizing directory state..."
+            git checkout .
+            rm -f "$BUILD_WAR"
+            echo "--- Hot-deployment of $TAG_NAME completed successfully! ---"
