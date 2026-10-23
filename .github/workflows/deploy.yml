@@ -24,7 +24,7 @@ jobs:
           echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
 
       - name: Checkout Code
-        uses: actions/checkout@v7
+        uses: actions/checkout@v7 
         with:
           ref: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
           fetch-depth: 0
@@ -33,7 +33,7 @@ jobs:
       - name: Extract Short Hash and Clean Version
         id: git-info
         run: |
-          # Get the 7-character short hash
+          # Get the 7-character short hash to pass to the Maven build execution
           echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set up JDK & Maven Environment
@@ -47,7 +47,9 @@ jobs:
         run: |
           mvn clean package -DskipTests \
             -Dgit.branch="${{ steps.determine-tag.outputs.TAG_NAME }}" \
-            -Dgit.commit.id.abbrev="${{ steps.git-info.outputs.SHORT_HASH }}"
+            -Dgit.commit.id.abbrev="${{ steps.git-info.outputs.SHORT_HASH }}" \
+            -Dgit.closest.tag.name="${{ steps.determine-tag.outputs.TAG_NAME }}" \
+            -Dgit.commit.id.describe="${{ steps.determine-tag.outputs.TAG_NAME }}"
 
       - name: Upload WAR Artifact to GitHub Cloud
         uses: actions/upload-artifact@v6
@@ -95,7 +97,6 @@ jobs:
             GIT_BIN="/usr/bin/git"
             cd ${{ vars.PROD_APP_PATH }}
 
-            # Aligns safety behavior with your primary script to prevent silent script hangs
             cleanup_on_failure() {
               EXIT_CODE=$?
               if [ $EXIT_CODE -ne 0 ]; then
