@@ -24,7 +24,7 @@ jobs:
           echo "TAG_NAME=$TAG" >> $GITHUB_OUTPUT
 
       - name: Checkout Code
-        uses: actions/checkout@v4.2.2
+        uses: actions/checkout@v7
         with:
           ref: ${{ github.event.inputs.test_tag || github.event.release.tag_name }}
           fetch-depth: 0
@@ -44,17 +44,16 @@ jobs:
           cache: 'maven'
 
       - name: Build WAR File Off-Server
-        # We explicitly pass the clean version tag to the branch property and the short hash to the hash property
         run: |
           mvn clean package -DskipTests \
             -Dgit.branch="${{ steps.determine-tag.outputs.TAG_NAME }}" \
             -Dgit.commit.id.abbrev="${{ steps.git-info.outputs.SHORT_HASH }}"
+
       - name: Upload WAR Artifact to GitHub Cloud
-        uses: actions/upload-artifact@v4.4.3
+        uses: actions/upload-artifact@v6
         with:
           name: target-war-file
           path: target/${{ vars.PROD_APP_NAME }}.war
-
   # --- JOB 2: SECURE UPLOAD & TOMCAT DEPLOYMENT ---
   deploy-to-production:
     needs: build-application
@@ -63,7 +62,7 @@ jobs:
       TAG_NAME: ${{ needs.build-application.outputs.tag_name }}
     steps:
       - name: Download Built WAR Artifact
-        uses: actions/download-artifact@v4.1.8
+        uses: actions/download-artifact@v7
         with:
           name: target-war-file
           path: .
@@ -92,13 +91,25 @@ jobs:
           script: |
             CURRENT_STEP="INITIALIZATION"
             echo "[Step 1/4] --- Starting Remote Deploy Loop for $TAG_NAME ---"
+            
+            GIT_BIN="/usr/bin/git"
             cd ${{ vars.PROD_APP_PATH }}
+
+            # Aligns safety behavior with your primary script to prevent silent script hangs
+            cleanup_on_failure() {
+              EXIT_CODE=$?
+              if [ $EXIT_CODE -ne 0 ]; then
+                echo "!!! ERROR DETECTED in Step: $CURRENT_STEP (Exit Code: $EXIT_CODE) !!!"
+                $GIT_BIN checkout .
+                exit $EXIT_CODE
+              fi
+            }
+            trap cleanup_on_failure ERR
             
             CURRENT_STEP="SOURCE_SYNC"
-            # Sync repo state on server without compiling code
             echo "[Step 2/4] Syncing server source tracking to tag: $TAG_NAME"
-            git fetch --tags --all
-            git checkout -B "release-$TAG_NAME" "$TAG_NAME"
+            $GIT_BIN fetch --tags --all
+            $GIT_BIN checkout -B "release-$TAG_NAME" "$TAG_NAME"
 
             CURRENT_STEP="TOMCAT_DEPLOYMENT"
             echo "[Step 3/4] Registering versioned asset into Tomcat environment..."
@@ -107,9 +118,10 @@ jobs:
 
             # Hot-deploy asset into webapps path cleanly
             cp "$BUILD_WAR" "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
+            touch "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
 
             CURRENT_STEP="FINAL_CLEANUP"
             echo "[Step 4/4] Finalizing directory state..."
-            git checkout .
+            $GIT_BIN checkout .
             rm -f "$BUILD_WAR"
             echo "--- Hot-deployment of $TAG_NAME completed successfully! ---"
