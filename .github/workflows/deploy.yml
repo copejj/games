@@ -1,4 +1,4 @@
-name: Secure Build and Remote Deploy
+name: Secure Build and Shadow DB Migration Deploy
 
 on:
   release:
@@ -11,7 +11,7 @@ on:
         default: 'testing'
 
 jobs:
-  # --- JOB 1: BUILD OFF-SERVER (IN GITHUB ACTIONS) ---
+  # --- JOB 1: SECURE CLOUD COMPILATION (OFF-SERVER) ---
   build-application:
     runs-on: ubuntu-24.04
     outputs:
@@ -33,7 +33,7 @@ jobs:
       - name: Extract Short Hash and Clean Version
         id: git-info
         run: |
-          # Get the 7-character short hash to pass to the Maven build execution
+          # Get the 7-character short hash
           echo "SHORT_HASH=$(git rev-parse --short HEAD)" >> $GITHUB_OUTPUT
 
       - name: Set up JDK & Maven Environment
@@ -52,25 +52,26 @@ jobs:
             -Dgit.commit.id.describe="${{ steps.determine-tag.outputs.TAG_NAME }}"
 
       - name: Upload WAR Artifact to GitHub Cloud
-        uses: actions/upload-artifact@v6
+        uses: actions/upload-artifact@v7
         with:
-          name: target-war-file
-          path: target/${{ vars.PROD_APP_NAME }}.war
-  # --- JOB 2: SECURE UPLOAD & TOMCAT DEPLOYMENT ---
+          name: deployment-war-package
+          path: target/*.war 
+
+  # --- JOB 2: REMOTE DEPLOYMENT & SHADOW DB MIGRATIONS ---
   deploy-to-production:
     needs: build-application
     runs-on: ubuntu-24.04
     env:
       TAG_NAME: ${{ needs.build-application.outputs.tag_name }}
     steps:
-      - name: Download Built WAR Artifact
-        uses: actions/download-artifact@v7
+      - name: Download Artifacts
+        uses: actions/download-artifact@v8
         with:
-          name: target-war-file
+          name: deployment-war-package
           path: .
 
-      # Securely copy the pre-built asset over without building on-server
-      - name: Copy WAR over to Server Staging Target
+      # Securely transfer the asset over without compiling anything on your target environment
+      - name: Copy WAR over to Server Target Staging Path
         uses: appleboy/scp-action@v0.1.7
         with:
           host: ${{ vars.PROD_HOST }}
@@ -92,7 +93,7 @@ jobs:
           envs: TAG_NAME
           script: |
             CURRENT_STEP="INITIALIZATION"
-            echo "[Step 1/4] --- Starting Remote Deploy Loop for $TAG_NAME ---"
+            echo "[Step 1/4] --- Starting Safe Deployment Flow for $TAG_NAME ---"
             
             GIT_BIN="/usr/bin/git"
             cd ${{ vars.PROD_APP_PATH }}
@@ -107,22 +108,21 @@ jobs:
             }
             trap cleanup_on_failure ERR
             
-            CURRENT_STEP="SOURCE_SYNC"
-            echo "[Step 2/4] Syncing server source tracking to tag: $TAG_NAME"
+            CURRENT_STEP="SOURCE_CHECKOUT"
+            echo "[Step 2/4] Fetching code for tag: $TAG_NAME"
             $GIT_BIN fetch --tags --all
             $GIT_BIN checkout -B "release-$TAG_NAME" "$TAG_NAME"
 
-            CURRENT_STEP="TOMCAT_DEPLOYMENT"
-            echo "[Step 3/4] Registering versioned asset into Tomcat environment..."
+            CURRENT_STEP="TOMCAT DEPLOYMENT"
+            echo "[Step 3/4] Deploying pre-compiled versioned WAR file..."
             VERSION_NAME="${{ vars.PROD_DEPLOY_NAME }}##${TAG_NAME}.war"
             BUILD_WAR="${{ vars.PROD_APP_PATH }}/target/${{ vars.PROD_APP_NAME }}.war"
 
-            # Hot-deploy asset into webapps path cleanly
             cp "$BUILD_WAR" "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
             touch "${{ vars.PROD_DEPLOY_PATH }}/$VERSION_NAME"
 
             CURRENT_STEP="FINAL_CLEANUP"
-            echo "[Step 4/4] Finalizing directory state..."
+            echo "[Step 4/4] Cleaning up environment..."
             $GIT_BIN checkout .
             rm -f "$BUILD_WAR"
-            echo "--- Hot-deployment of $TAG_NAME completed successfully! ---"
+            echo "--- Deployment of $TAG_NAME completed successfully! ---"
