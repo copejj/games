@@ -5,8 +5,8 @@
 	<parent>
 		<groupId>org.springframework.boot</groupId>
 		<artifactId>spring-boot-starter-parent</artifactId>
-		<version>4.1.2</version>
-		<relativePath/>
+		<version>4.0.2</version>
+		<relativePath/> <!-- lookup parent from repository -->
 	</parent>
 	<groupId>com.braindribbler</groupId>
 	<artifactId>games</artifactId>
@@ -27,7 +27,7 @@
 		<url/>
 	</scm>
 	<properties>
-		<java.version>21</java.version>
+		<java.version>25</java.version>
 		<my.warName>spring-games</my.warName>
 	</properties>
 	<dependencies>
@@ -85,19 +85,10 @@
 						<goals>
 							<goal>revision</goal>
 						</goals>
-						<phase>initialize</phase>
 					</execution>
 				</executions>
 				<configuration>
 					<generateGitPropertiesFile>true</generateGitPropertiesFile>
-					<generateGitPropertiesFilename>${project.build.outputDirectory}/git.properties</generateGitPropertiesFilename>
-					<failOnNoGitDirectory>false</failOnNoGitDirectory>
-					<injectAllReactorProjects>true</injectAllReactorProjects>
-					<skipPoms>false</skipPoms>
-					<gitDescribe>
-						<tags>true</tags>
-					</gitDescribe>
-					<useBranchNameFromBuildEnvironment>false</useBranchNameFromBuildEnvironment>
 				</configuration>
 			</plugin>
 		</plugins>
